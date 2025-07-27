@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "identifier": "com.projectr.app",
   "build": {
-    "beforeDevCommand": "",
+    "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
   "bundle": {
@@ -50,8 +50,7 @@
       }
     ],
     "security": {
-      "csp": null,
-      "dangerousDisableAssetCspModification": true
+      "csp": null
     }
   },
   "plugins": {
