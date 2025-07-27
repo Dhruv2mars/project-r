@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-gray-900 font-sans;
+  }
+}
+
+@layer components {
+  .code-editor {
+    @apply h-full border border-gray-200 rounded-lg;
+  }
+  
+  .console-output {
+    @apply h-full bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm overflow-auto;
+  }
+}
