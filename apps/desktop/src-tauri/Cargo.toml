@@ -17,6 +17,25 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 
+# Audio recording and processing
+cpal = "0.15"
+hound = "3.5"
+rubato = "0.15"
+
+# HTTP client for Ollama API
+reqwest = { version = "0.12", features = ["json"] }
+
+# Python integration for MeloTTS
+pyo3 = { version = "0.22", features = ["auto-initialize"] }
+
+# Whisper integration (we'll use a community crate)
+whisper-rs = "0.12"
+
+# Additional utilities
+uuid = { version = "1.0", features = ["v4"] }
+tempfile = "3.10"
+dirs = "5.0"
+
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
