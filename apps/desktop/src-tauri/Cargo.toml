@@ -25,9 +25,6 @@ rubato = "0.15"
 # HTTP client for Ollama API
 reqwest = { version = "0.12", features = ["json"] }
 
-# Python integration for MeloTTS
-pyo3 = { version = "0.22", features = ["auto-initialize"] }
-
 # Whisper integration (we'll use a community crate)
 whisper-rs = "0.12"
 

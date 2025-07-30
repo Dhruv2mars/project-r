@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react'
 import { Play, Mic, MicOff, Loader2 } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 
+// Helper function to clean markdown formatting from code
+function cleanCodeForEditor(code: string): string {
+  return code
+    .replace(/^```python\n?/, '')  // Remove opening ```python
+    .replace(/\n?```$/, '')        // Remove closing ```
+    .trim()
+}
+
 function App() {
   const [code, setCode] = useState('print("Hello, Project-R!")')
   const [output, setOutput] = useState('')
@@ -103,7 +111,7 @@ function App() {
         
         // Step 4: Update code if the AI provided new code
         if (aiResponse.code_to_insert && aiResponse.code_to_insert.trim()) {
-          setCode(aiResponse.code_to_insert)
+          setCode(cleanCodeForEditor(aiResponse.code_to_insert))
           setOutput(prev => prev + `\n\n📝 Code has been updated!`)
         }
         

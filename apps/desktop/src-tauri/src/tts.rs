@@ -102,9 +102,8 @@ impl SystemTTSEngine {
             
             println!("Speaking: {}", &text[..std::cmp::min(50, text.len())]);
             
-            // Use spawn with timeout to prevent hanging
+            // Use spawn and wait for completion without timeout
             use std::process::{Stdio};
-            use std::time::{Duration, Instant};
             
             let mut child = Command::new("say")
                 .arg(text)
@@ -114,39 +113,24 @@ impl SystemTTSEngine {
                 .spawn()
                 .map_err(|e| format!("Failed to spawn 'say' command: {}", e))?;
 
-            let start = Instant::now();
-            let timeout = Duration::from_secs(30); // 30 second timeout
-            
-            // Poll for completion with timeout
-            loop {
-                match child.try_wait() {
-                    Ok(Some(status)) => {
-                        if status.success() {
-                            println!("macOS TTS completed successfully");
-                            return Ok(());
-                        } else {
-                            let mut stderr = String::new();
-                            if let Some(mut stderr_handle) = child.stderr.take() {
-                                use std::io::Read;
-                                let _ = stderr_handle.read_to_string(&mut stderr);
-                            }
-                            return Err(format!("macOS TTS failed with status: {:?}, stderr: {}", status, stderr));
+            // Wait for completion without timeout
+            match child.wait() {
+                Ok(status) => {
+                    if status.success() {
+                        println!("macOS TTS completed successfully");
+                        return Ok(());
+                    } else {
+                        let mut stderr = String::new();
+                        if let Some(mut stderr_handle) = child.stderr.take() {
+                            use std::io::Read;
+                            let _ = stderr_handle.read_to_string(&mut stderr);
                         }
+                        return Err(format!("macOS TTS failed with status: {:?}, stderr: {}", status, stderr));
                     }
-                    Ok(None) => {
-                        // Still running, check timeout
-                        if start.elapsed() > timeout {
-                            println!("TTS timeout reached, killing process...");
-                            let _ = child.kill();
-                            let _ = child.wait();
-                            return Err("macOS TTS timed out after 30 seconds".to_string());
-                        }
-                        std::thread::sleep(Duration::from_millis(100));
-                    }
-                    Err(e) => {
-                        let _ = child.kill();
-                        return Err(format!("Error waiting for TTS process: {}", e));
-                    }
+                }
+                Err(e) => {
+                    let _ = child.kill();
+                    return Err(format!("Error waiting for TTS process: {}", e));
                 }
             }
         }

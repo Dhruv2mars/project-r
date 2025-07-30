@@ -161,6 +161,7 @@ async fn generate_and_play_speech(
 ) -> Result<String, String> {
     println!("Generating and playing speech for: {}", text);
     
+    // The text is already clean conversation text from structured output
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
     engine.generate_speech(&text)?;
     
