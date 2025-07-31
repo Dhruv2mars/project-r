@@ -174,8 +174,19 @@ impl OllamaClient {
             Err(_) => {
                 // If JSON parsing fails, try to fix common issues
                 
-                // Handle truncated JSON by attempting to complete it
+                // Fix common typos first
                 let mut fixed_response = response.to_string();
+                fixed_response = fixed_response.replace("\"conversaation_response\"", "\"conversation_response\"");
+                
+                // Try parsing the typo-fixed version
+                match serde_json::from_str::<SessionResponse>(&fixed_response) {
+                    Ok(parsed) => return Ok(parsed),
+                    Err(_) => {
+                        // Continue with truncation handling
+                    }
+                }
+                
+                // Handle truncated JSON by attempting to complete it
                 
                 // If response ends abruptly, try to close the JSON properly
                 if !fixed_response.trim().ends_with('}') {
@@ -216,23 +227,27 @@ impl OllamaClient {
         let mut conversation_response = String::new();
         let mut code_to_insert = String::new();
         
-        // Try to extract conversation_response
-        if let Some(start) = response.find("\"conversation_response\"") {
-            if let Some(colon_pos) = response[start..].find(':') {
-                let after_colon = start + colon_pos + 1;
-                if let Some(quote_start) = response[after_colon..].find('"') {
-                    let content_start = after_colon + quote_start + 1;
-                    // Find the end quote, handling escaped quotes
-                    let mut end_pos = content_start;
-                    let chars: Vec<char> = response.chars().collect();
-                    while end_pos < chars.len() {
-                        if chars[end_pos] == '"' && (end_pos == 0 || chars[end_pos - 1] != '\\') {
+        // Try to extract conversation_response (handle typos like "conversaation_response")
+        let conversation_patterns = ["\"conversation_response\"", "\"conversaation_response\""];
+        for pattern in &conversation_patterns {
+            if let Some(start) = response.find(pattern) {
+                if let Some(colon_pos) = response[start..].find(':') {
+                    let after_colon = start + colon_pos + 1;
+                    if let Some(quote_start) = response[after_colon..].find('"') {
+                        let content_start = after_colon + quote_start + 1;
+                        // Find the end quote, handling escaped quotes
+                        let mut end_pos = content_start;
+                        let chars: Vec<char> = response.chars().collect();
+                        while end_pos < chars.len() {
+                            if chars[end_pos] == '"' && (end_pos == 0 || chars[end_pos - 1] != '\\') {
+                                break;
+                            }
+                            end_pos += 1;
+                        }
+                        if end_pos < chars.len() {
+                            conversation_response = response[content_start..end_pos].to_string();
                             break;
                         }
-                        end_pos += 1;
-                    }
-                    if end_pos < chars.len() {
-                        conversation_response = response[content_start..end_pos].to_string();
                     }
                 }
             }
@@ -287,11 +302,12 @@ CRITICAL: You must respond with valid JSON in EXACTLY this format:
 }}
 
 IMPORTANT JSON RULES:
-- Field names must be EXACTLY: "conversation_response" and "code_to_insert"
+- Field names must be EXACTLY: "conversation_response" and "code_to_insert" (check spelling carefully!)
 - Valid JSON syntax only
 - No additional text outside the JSON
 - Keep conversation_response concise to avoid truncation
 - Escape quotes properly with \"
+- DO NOT misspell field names (NOT "conversaation_response")
 
 Guidelines:
 - Be encouraging and educational in conversation_response

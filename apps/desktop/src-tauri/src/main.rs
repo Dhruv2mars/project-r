@@ -1,7 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::process::Command;
 use std::sync::Mutex;
 use tauri::{command, State};
 
@@ -9,6 +8,7 @@ mod audio;
 mod whisper;
 mod llm;
 mod tts;
+mod interactive_python;
 
 // Global state for audio recorder
 struct AudioState {
@@ -30,19 +30,34 @@ struct TTSState {
     engine: Mutex<tts::SystemTTSEngine>,
 }
 
-#[command]
-async fn execute_python_code(code: String) -> Result<String, String> {
-    let output = Command::new("python3")
-        .arg("-c")
-        .arg(&code)
-        .output()
-        .map_err(|e| format!("Failed to execute command: {}", e))?;
+// Global state for Python session manager
+struct PythonState {
+    session_manager: interactive_python::PythonSessionManager,
+}
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
-    }
+#[command]
+async fn execute_python_code(code: String, state: State<'_, PythonState>) -> Result<String, String> {
+    state.session_manager.start_python_session(code).await
+}
+
+#[command] 
+async fn send_python_input(session_id: String, input: String, state: State<'_, PythonState>) -> Result<(), String> {
+    state.session_manager.send_input(session_id, input).await
+}
+
+#[command]
+async fn get_python_output(session_id: String, state: State<'_, PythonState>) -> Result<Vec<String>, String> {
+    state.session_manager.get_output(session_id).await
+}
+
+#[command]
+async fn is_python_session_running(session_id: String, state: State<'_, PythonState>) -> Result<bool, String> {
+    state.session_manager.is_session_running(session_id).await
+}
+
+#[command]
+async fn close_python_session(session_id: String, state: State<'_, PythonState>) -> Result<(), String> {
+    state.session_manager.close_session(session_id).await
 }
 
 #[command]
@@ -183,8 +198,15 @@ fn main() {
         .manage(TTSState {
             engine: Mutex::new(tts::SystemTTSEngine::new()),
         })
+        .manage(PythonState {
+            session_manager: interactive_python::PythonSessionManager::new(),
+        })
         .invoke_handler(tauri::generate_handler![
             execute_python_code,
+            send_python_input,
+            get_python_output,
+            is_python_session_running,
+            close_python_session,
             test_microphone,
             start_recording,
             stop_recording,
