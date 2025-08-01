@@ -36,6 +36,10 @@ dirs = "5.0"
 # PTY for interactive terminal
 portable-pty = "0.8"
 
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]

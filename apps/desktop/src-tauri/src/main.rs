@@ -9,6 +9,8 @@ mod whisper;
 mod llm;
 mod tts;
 mod interactive_python;
+mod database;
+mod session_summary;
 
 // Global state for audio recorder
 struct AudioState {
@@ -33,6 +35,16 @@ struct TTSState {
 // Global state for Python session manager
 struct PythonState {
     session_manager: interactive_python::PythonSessionManager,
+}
+
+// Global state for database
+struct DatabaseState {
+    db: Mutex<database::Database>,
+}
+
+// Global state for Summary LLM client
+struct SummaryState {
+    client: session_summary::SummaryLLMClient,
 }
 
 #[command]
@@ -139,13 +151,28 @@ async fn initialize_llm(state: State<'_, LLMState>) -> Result<String, String> {
 async fn generate_ai_response(
     user_input: String,
     current_code: String,
-    state: State<'_, LLMState>
+    session_id: Option<String>,
+    llm_state: State<'_, LLMState>,
+    db_state: State<'_, DatabaseState>
 ) -> Result<String, String> {
     println!("Generating AI response for input: {}", user_input);
     
-    let response = state.client
+    let response = llm_state.client
         .generate_session_response(&user_input, &current_code, "gemma3n")
         .await?;
+    
+    // Save conversation history if session_id is provided
+    if let Some(ref session_id) = session_id {
+        let db = db_state.db.lock().map_err(|e| e.to_string())?;
+        
+        // Save user message
+        db.add_message(session_id, "user", &user_input)
+            .map_err(|e| format!("Failed to save user message: {}", e))?;
+        
+        // Save AI conversation response (not the code part)
+        db.add_message(session_id, "assistant", &response.conversation_response)
+            .map_err(|e| format!("Failed to save assistant message: {}", e))?;
+    }
     
     // Convert the response back to JSON string for the frontend
     let json_response = serde_json::to_string(&response)
@@ -183,6 +210,94 @@ async fn generate_and_play_speech(
     Ok("Speech completed successfully".to_string())
 }
 
+// Database commands
+#[command]
+async fn create_session(session_id: String, title: String, state: State<'_, DatabaseState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.create_session(&session_id, &title).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn get_all_sessions(state: State<'_, DatabaseState>) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let sessions = db.get_all_sessions().map_err(|e| e.to_string())?;
+    serde_json::to_string(&sessions).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn get_session_messages(session_id: String, state: State<'_, DatabaseState>) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let messages = db.get_session_messages(&session_id).map_err(|e| e.to_string())?;
+    serde_json::to_string(&messages).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn add_message(session_id: String, role: String, content: String, state: State<'_, DatabaseState>) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.add_message(&session_id, &role, &content).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn update_session_title(session_id: String, title: String, state: State<'_, DatabaseState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.update_session_title(&session_id, &title).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn delete_session(session_id: String, state: State<'_, DatabaseState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_session(&session_id).map_err(|e| e.to_string())
+}
+
+// Memory management commands
+#[command]
+async fn generate_session_summary(
+    session_id: String, 
+    db_state: State<'_, DatabaseState>,
+    summary_state: State<'_, SummaryState>
+) -> Result<String, String> {
+    // Get session messages (scope the lock)
+    let messages = {
+        let db = db_state.db.lock().map_err(|e| e.to_string())?;
+        db.get_session_messages(&session_id).map_err(|e| e.to_string())?
+    };
+    
+    if messages.is_empty() {
+        return Err("No messages found for this session".to_string());
+    }
+    
+    // Format messages for LLM
+    let formatted_session = session_summary::format_session_for_summary(&messages);
+    
+    // Generate summary using LLM
+    let summary = summary_state.client
+        .generate_session_summary(&formatted_session, "gemma3n")
+        .await?;
+    
+    // Append summary to memory (scope the lock)
+    {
+        let db = db_state.db.lock().map_err(|e| e.to_string())?;
+        let user_id = "default_user"; // Single user system for now
+        db.append_to_memory(user_id, &summary).map_err(|e| e.to_string())?;
+    }
+    
+    Ok(summary)
+}
+
+#[command]
+async fn get_memory_content(state: State<'_, DatabaseState>) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let user_id = "default_user"; // Single user system for now
+    db.get_memory_content(user_id).map_err(|e| e.to_string())
+}
+
+#[command]
+async fn append_to_memory(content: String, state: State<'_, DatabaseState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let user_id = "default_user"; // Single user system for now
+    db.append_to_memory(user_id, &content).map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -200,6 +315,12 @@ fn main() {
         })
         .manage(PythonState {
             session_manager: interactive_python::PythonSessionManager::new(),
+        })
+        .manage(DatabaseState {
+            db: Mutex::new(database::Database::new().expect("Failed to initialize database")),
+        })
+        .manage(SummaryState {
+            client: session_summary::SummaryLLMClient::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             execute_python_code,
@@ -219,7 +340,16 @@ fn main() {
             generate_ai_response,
             test_tts,
             initialize_tts,
-            generate_and_play_speech
+            generate_and_play_speech,
+            create_session,
+            get_all_sessions,
+            get_session_messages,
+            add_message,
+            update_session_title,
+            delete_session,
+            generate_session_summary,
+            get_memory_content,
+            append_to_memory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

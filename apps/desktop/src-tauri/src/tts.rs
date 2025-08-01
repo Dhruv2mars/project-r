@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 use std::process::Command;
-use std::fs;
-use uuid::Uuid;
 
 pub struct SystemTTSEngine {
     is_initialized: bool,
@@ -118,7 +116,6 @@ impl SystemTTSEngine {
                 Ok(status) => {
                     if status.success() {
                         println!("macOS TTS completed successfully");
-                        return Ok(());
                     } else {
                         let mut stderr = String::new();
                         if let Some(mut stderr_handle) = child.stderr.take() {
