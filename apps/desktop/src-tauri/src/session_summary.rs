@@ -103,6 +103,26 @@ Important guidelines:
     }
 }
 
+// Helper function to extract session title from summary
+pub fn extract_session_title_from_summary(summary: &str) -> Option<String> {
+    // Look for "Session name: " pattern
+    if let Some(start) = summary.find("Session name: ") {
+        let after_prefix = &summary[start + 14..]; // 14 is length of "Session name: "
+        if let Some(end) = after_prefix.find('\n') {
+            let title = after_prefix[..end].trim().to_string();
+            if !title.is_empty() {
+                return Some(title);
+            }
+        } else {
+            let title = after_prefix.trim().to_string();
+            if !title.is_empty() {
+                return Some(title);
+            }
+        }
+    }
+    None
+}
+
 // Helper function to format session messages for LLM input
 pub fn format_session_for_summary(messages: &[crate::database::Message]) -> String {
     let mut formatted = String::new();

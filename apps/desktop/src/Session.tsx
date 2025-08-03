@@ -25,10 +25,6 @@ function Session() {
   const [conversationSessionId, setConversationSessionId] = useState<string | null>(null)
   const [isNewSession, setIsNewSession] = useState(true)
   
-  // Memory viewer state
-  const [showMemoryViewer, setShowMemoryViewer] = useState(false)
-  const [memoryContent, setMemoryContent] = useState('')
-  const [loadingMemory, setLoadingMemory] = useState(false)
   
   // Voice interaction state
   const [isRecording, setIsRecording] = useState(false)
@@ -92,25 +88,6 @@ function Session() {
     }
   }
 
-  // Function to handle session summaries
-  const handleSessionSummaries = async () => {
-    if (showMemoryViewer) {
-      setShowMemoryViewer(false)
-      return
-    }
-
-    setLoadingMemory(true)
-    try {
-      const content = await invoke<string>('get_memory_content')
-      setMemoryContent(content || 'No session summaries yet. Complete some conversations to see summaries here.')
-      setShowMemoryViewer(true)
-    } catch (error) {
-      setMemoryContent(`Error loading memory content: ${error}`)
-      setShowMemoryViewer(true)
-    } finally {
-      setLoadingMemory(false)
-    }
-  }
 
   const handleRunCode = async () => {
     if (!code.trim()) return
@@ -307,15 +284,38 @@ function Session() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={async () => {
-              // Generate session summary if there's an active conversation
+              // Generate session summary and practice sheet if there's an active conversation
               if (conversationSessionId && !isNewSession) {
                 try {
                   setOutput(prev => prev + '\n\n📝 Generating session summary...')
-                  await invoke('generate_session_summary', { sessionId: conversationSessionId })
+                  const summary = await invoke<string>('generate_session_summary', { session_id: conversationSessionId })
                   setOutput(prev => prev + '\n✅ Session summary saved to memory!')
+                  
+                  // Extract and update session title from summary
+                  try {
+                    const titleMatch = summary.match(/Session name:\s*(.+?)(?:\n|$)/i)
+                    if (titleMatch && titleMatch[1]) {
+                      const extractedTitle = titleMatch[1].trim()
+                      await invoke('update_session_title', { 
+                        session_id: conversationSessionId, 
+                        title: extractedTitle 
+                      })
+                      setOutput(prev => prev + '\n📝 Session title updated!')
+                    }
+                  } catch (error) {
+                    console.error('Failed to update session title:', error)
+                  }
+                  
+                  // Generate practice sheet from the summary
+                  setOutput(prev => prev + '\n📝 Generating practice sheet...')
+                  await invoke('generate_practice_sheet_from_summary', { 
+                    summary: summary, 
+                    session_id: conversationSessionId 
+                  })
+                  setOutput(prev => prev + '\n✅ Practice sheet created!')
                 } catch (error) {
-                  console.error('Failed to generate session summary:', error)
-                  setOutput(prev => prev + '\n❌ Failed to generate session summary')
+                  console.error('Failed to generate session content:', error)
+                  setOutput(prev => prev + '\n❌ Failed to generate session content')
                 }
               }
               
@@ -348,34 +348,6 @@ function Session() {
           <h1 style={{ fontSize: '20px', fontWeight: '600', color: '#1f2937' }}>Project-R</h1>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            onClick={handleSessionSummaries}
-            disabled={loadingMemory}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              backgroundColor: showMemoryViewer ? '#7c3aed' : '#6366f1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: loadingMemory ? 'not-allowed' : 'pointer',
-              opacity: loadingMemory ? 0.5 : 1
-            }}
-          >
-            {loadingMemory ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                📚
-                {showMemoryViewer ? 'Hide Summaries' : 'Session Summaries'}
-              </>
-            )}
-          </button>
           <button
             onClick={handleVoiceInteraction}
             disabled={!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing}
@@ -525,82 +497,6 @@ function Session() {
         </div>
       </div>
 
-      {/* Memory Viewer Modal */}
-      {showMemoryViewer && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '800px',
-            maxHeight: '80vh',
-            width: '90%',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '20px'
-            }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '600',
-                color: '#1f2937',
-                margin: 0
-              }}>
-                Session Summaries
-              </h2>
-              <button
-                onClick={() => setShowMemoryViewer(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6b7280',
-                  padding: '4px'
-                }}
-              >
-                ×
-              </button>
-            </div>
-            
-            <div style={{
-              flex: 1,
-              overflow: 'auto',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '16px'
-            }}>
-              <pre style={{
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                color: '#374151',
-                margin: 0
-              }}>
-                {memoryContent}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
