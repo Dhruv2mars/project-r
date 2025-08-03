@@ -186,6 +186,7 @@ impl Database {
 
         // Handle schema migrations for existing databases
         self.migrate_database_schema()?;
+        self.fix_user_datetime_data()?;
 
         Ok(())
     }
@@ -226,6 +227,43 @@ impl Database {
                 "ALTER TABLE practice_sheets ADD COLUMN is_redo_ready BOOLEAN NOT NULL DEFAULT 0",
                 [],
             )?;
+        }
+        
+        Ok(())
+    }
+
+    fn fix_user_datetime_data(&self) -> Result<()> {
+        // Check if users table exists and has data that needs fixing
+        let mut stmt = self.conn.prepare("SELECT id, created_at, updated_at FROM users")?;
+        let user_rows: Vec<(String, String, String)> = stmt.query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?.collect::<Result<Vec<_>, _>>()?;
+        
+        let now = Utc::now().to_rfc3339();
+        
+        for (user_id, created_at_str, updated_at_str) in user_rows {
+            let mut needs_update = false;
+            let mut new_created_at = created_at_str.clone();
+            let mut new_updated_at = updated_at_str.clone();
+            
+            // Check if created_at is valid RFC3339
+            if DateTime::parse_from_rfc3339(&created_at_str).is_err() {
+                new_created_at = now.clone();
+                needs_update = true;
+            }
+            
+            // Check if updated_at is valid RFC3339
+            if DateTime::parse_from_rfc3339(&updated_at_str).is_err() {
+                new_updated_at = now.clone();
+                needs_update = true;
+            }
+            
+            if needs_update {
+                self.conn.execute(
+                    "UPDATE users SET created_at = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![new_created_at, new_updated_at, user_id],
+                )?;
+            }
         }
         
         Ok(())
@@ -343,8 +381,8 @@ impl Database {
         // Try to get existing user
         match self.get_user(user_id) {
             Ok(user) => Ok(user),
-            Err(_) => {
-                // Create new user if doesn't exist
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                // Create new user only if doesn't exist
                 let now = Utc::now();
                 self.conn.execute(
                     "INSERT INTO users (id, memory_content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
@@ -352,6 +390,7 @@ impl Database {
                 )?;
                 self.get_user(user_id)
             }
+            Err(e) => Err(e), // Pass through other errors
         }
     }
 
@@ -364,15 +403,20 @@ impl Database {
             let created_at_str: String = row.get(2)?;
             let updated_at_str: String = row.get(3)?;
             
+            // Try to parse datetime strings, use current time as fallback for invalid data
+            let now = Utc::now();
+            let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or(now);
+            let updated_at = DateTime::parse_from_rfc3339(&updated_at_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or(now);
+            
             Ok(User {
                 id: row.get(0)?,
                 memory_content: row.get(1)?,
-                created_at: DateTime::parse_from_rfc3339(&created_at_str)
-                    .map_err(|_| rusqlite::Error::InvalidColumnType(2, "created_at".to_string(), rusqlite::types::Type::Text))?
-                    .with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&updated_at_str)
-                    .map_err(|_| rusqlite::Error::InvalidColumnType(3, "updated_at".to_string(), rusqlite::types::Type::Text))?
-                    .with_timezone(&Utc),
+                created_at,
+                updated_at,
             })
         })?;
 

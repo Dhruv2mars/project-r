@@ -243,34 +243,34 @@ async fn get_session_messages(sessionId: String, state: State<'_, DatabaseState>
 }
 
 #[command]
-async fn add_message(session_id: String, role: String, content: String, state: State<'_, DatabaseState>) -> Result<String, String> {
+async fn add_message(sessionId: String, role: String, content: String, state: State<'_, DatabaseState>) -> Result<String, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.add_message(&session_id, &role, &content).map_err(|e| e.to_string())
+    db.add_message(&sessionId, &role, &content).map_err(|e| e.to_string())
 }
 
 #[command]
-async fn update_session_title(session_id: String, title: String, state: State<'_, DatabaseState>) -> Result<(), String> {
+async fn update_session_title(sessionId: String, title: String, state: State<'_, DatabaseState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.update_session_title(&session_id, &title).map_err(|e| e.to_string())
+    db.update_session_title(&sessionId, &title).map_err(|e| e.to_string())
 }
 
 #[command]
-async fn delete_session(session_id: String, state: State<'_, DatabaseState>) -> Result<(), String> {
+async fn delete_session(sessionId: String, state: State<'_, DatabaseState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.delete_session(&session_id).map_err(|e| e.to_string())
+    db.delete_session(&sessionId).map_err(|e| e.to_string())
 }
 
 // Memory management commands
 #[command]
 async fn generate_session_summary(
-    session_id: String, 
+    sessionId: String, 
     db_state: State<'_, DatabaseState>,
     summary_state: State<'_, SummaryState>
 ) -> Result<String, String> {
     // Get session messages (scope the lock)
     let messages = {
         let db = db_state.db.lock().map_err(|e| e.to_string())?;
-        db.get_session_messages(&session_id).map_err(|e| e.to_string())?
+        db.get_session_messages(&sessionId).map_err(|e| e.to_string())?
     };
     
     if messages.is_empty() {
@@ -313,7 +313,7 @@ async fn append_to_memory(content: String, state: State<'_, DatabaseState>) -> R
 #[command]
 async fn generate_practice_sheet_from_summary(
     summary: String,
-    session_id: String,
+    sessionId: String,
     practice_state: State<'_, PracticeSheetState>,
     db_state: State<'_, DatabaseState>
 ) -> Result<String, String> {
@@ -330,7 +330,7 @@ async fn generate_practice_sheet_from_summary(
         let db = db_state.db.lock().map_err(|e| e.to_string())?;
         
         // Create practice sheet
-        let practice_sheet_id = db.create_practice_sheet(&session_id, &title)
+        let practice_sheet_id = db.create_practice_sheet(&sessionId, &title)
             .map_err(|e| e.to_string())?;
         
         // Add all questions
@@ -356,65 +356,65 @@ async fn get_all_practice_sheets(state: State<'_, DatabaseState>) -> Result<Stri
 }
 
 #[command]
-async fn get_practice_sheet_questions(practice_sheet_id: String, state: State<'_, DatabaseState>) -> Result<String, String> {
+async fn get_practice_sheet_questions(practiceSheetId: String, state: State<'_, DatabaseState>) -> Result<String, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let questions = db.get_practice_sheet_questions(&practice_sheet_id).map_err(|e| e.to_string())?;
+    let questions = db.get_practice_sheet_questions(&practiceSheetId).map_err(|e| e.to_string())?;
     serde_json::to_string(&questions).map_err(|e| e.to_string())
 }
 
 
 #[command]
 async fn complete_practice_sheet(
-    practice_sheet_id: String,
-    user_answers: Vec<String>,
+    practiceSheetId: String,
+    userAnswers: Vec<String>,
     score: i32,
-    total_questions: i32,
+    totalQuestions: i32,
     db_state: State<'_, DatabaseState>,
     _practice_state: State<'_, PracticeSheetState>
 ) -> Result<String, String> {
-    println!("Completing practice sheet: {} with score {}/{}", practice_sheet_id, score, total_questions);
+    println!("Completing practice sheet: {} with score {}/{}", practiceSheetId, score, totalQuestions);
     
     // Store the practice attempt and mark as completed (scope the lock)
     {
         let db = db_state.db.lock().map_err(|e| e.to_string())?;
         
         // Get practice sheet title for logging
-        let sheet_title = db.get_practice_sheet_title(&practice_sheet_id)
+        let sheet_title = db.get_practice_sheet_title(&practiceSheetId)
             .map_err(|e| format!("Failed to get practice sheet title: {}", e))?;
         
-        println!("Processing completion for practice sheet '{}' (ID: {})", sheet_title, practice_sheet_id);
+        println!("Processing completion for practice sheet '{}' (ID: {})", sheet_title, practiceSheetId);
         
         // Create practice attempt record
-        db.create_practice_attempt(&practice_sheet_id, &user_answers, score, total_questions)
+        db.create_practice_attempt(&practiceSheetId, &userAnswers, score, totalQuestions)
             .map_err(|e| format!("Failed to create practice attempt: {}", e))?;
         
         // Mark practice sheet as completed
-        db.mark_practice_sheet_completed(&practice_sheet_id)
+        db.mark_practice_sheet_completed(&practiceSheetId)
             .map_err(|e| format!("Failed to mark practice sheet as completed: {}", e))?;
         
         // Store results in memory
         let user_id = "default_user";
-        db.store_practice_results_to_memory(&practice_sheet_id, user_id)
+        db.store_practice_results_to_memory(&practiceSheetId, user_id)
             .map_err(|e| format!("Failed to store results to memory: {}", e))?;
         
-        println!("Successfully stored completion data for practice sheet: {}", practice_sheet_id);
+        println!("Successfully stored completion data for practice sheet: {}", practiceSheetId);
     }
     
     // Check if a redo task is already running for this practice sheet
     {
         let running_tasks = RUNNING_REDO_TASKS.get_or_init(|| Mutex::new(HashSet::new()));
         let mut tasks = running_tasks.lock().map_err(|e| e.to_string())?;
-        if tasks.contains(&practice_sheet_id) {
-            println!("Redo generation already in progress for practice sheet: {}, skipping", practice_sheet_id);
+        if tasks.contains(&practiceSheetId) {
+            println!("Redo generation already in progress for practice sheet: {}, skipping", practiceSheetId);
             return Ok("Practice sheet completed successfully".to_string());
         }
-        tasks.insert(practice_sheet_id.clone());
+        tasks.insert(practiceSheetId.clone());
     }
     
     // Start background redo generation (don't wait for it)
-    let practice_sheet_id_clone = practice_sheet_id.clone();
+    let practice_sheet_id_clone = practiceSheetId.clone();
     
-    println!("Spawning background redo generation task for practice sheet: {}", practice_sheet_id);
+    println!("Spawning background redo generation task for practice sheet: {}", practiceSheetId);
     
     tokio::spawn(async move {
         // Add timeout to prevent indefinite running

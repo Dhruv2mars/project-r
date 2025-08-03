@@ -288,7 +288,7 @@ function Session() {
               if (conversationSessionId && !isNewSession) {
                 try {
                   setOutput(prev => prev + '\n\n📝 Generating session summary...')
-                  const summary = await invoke<string>('generate_session_summary', { session_id: conversationSessionId })
+                  const summary = await invoke<string>('generate_session_summary', { sessionId: conversationSessionId })
                   setOutput(prev => prev + '\n✅ Session summary saved to memory!')
                   
                   // Extract and update session title from summary
@@ -297,7 +297,7 @@ function Session() {
                     if (titleMatch && titleMatch[1]) {
                       const extractedTitle = titleMatch[1].trim()
                       await invoke('update_session_title', { 
-                        session_id: conversationSessionId, 
+                        sessionId: conversationSessionId, 
                         title: extractedTitle 
                       })
                       setOutput(prev => prev + '\n📝 Session title updated!')
@@ -310,7 +310,7 @@ function Session() {
                   setOutput(prev => prev + '\n📝 Generating practice sheet...')
                   await invoke('generate_practice_sheet_from_summary', { 
                     summary: summary, 
-                    session_id: conversationSessionId 
+                    sessionId: conversationSessionId 
                   })
                   setOutput(prev => prev + '\n✅ Practice sheet created!')
                 } catch (error) {
