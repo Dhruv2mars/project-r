@@ -639,6 +639,52 @@ impl Database {
         Ok(())
     }
 
+    // Helper function to update or insert practice sheet results in memory
+    fn update_practice_sheet_in_memory(&self, user_id: &str, sheet_title: &str, new_content: &str) -> Result<()> {
+        let current_user = self.get_or_create_user(user_id)?;
+        let full_memory = current_user.memory_content;
+        
+        // Check if this practice sheet already exists in memory
+        let sheet_marker = format!("Practice Sheet: {}", sheet_title);
+        
+        if let Some(start_pos) = full_memory.find(&sheet_marker) {
+            // Find the end of this practice sheet entry
+            let after_start = &full_memory[start_pos..];
+            
+            // Look for the next "Practice Sheet:" or "Session name:" or end of string
+            let end_pos = if let Some(next_sheet_pos) = after_start[1..].find("Practice Sheet: ") {
+                start_pos + 1 + next_sheet_pos
+            } else if let Some(next_session_pos) = after_start[1..].find("Session name: ") {
+                start_pos + 1 + next_session_pos
+            } else {
+                full_memory.len()
+            };
+            
+            // Replace the existing entry
+            let updated_memory = format!(
+                "{}{}{}",
+                &full_memory[..start_pos],
+                new_content,
+                if end_pos < full_memory.len() { 
+                    format!("\n{}", &full_memory[end_pos..])
+                } else { 
+                    String::new() 
+                }
+            );
+            
+            let now = Utc::now();
+            self.conn.execute(
+                "UPDATE users SET memory_content = ?1, updated_at = ?2 WHERE id = ?3",
+                params![updated_memory.trim(), now.to_rfc3339(), user_id],
+            )?;
+        } else {
+            // Practice sheet doesn't exist in memory, append it
+            self.append_to_memory(user_id, new_content)?;
+        }
+        
+        Ok(())
+    }
+
     // Memory storage for practice results
     pub fn store_practice_results_to_memory(
         &self,
@@ -695,8 +741,8 @@ impl Database {
 
         memory_content.push_str("Redo Available: Yes\n");
 
-        // Append to memory
-        self.append_to_memory(user_id, &memory_content)?;
+        // Update or insert practice sheet results in memory
+        self.update_practice_sheet_in_memory(user_id, &sheet_title, &memory_content)?;
 
         Ok(())
     }
