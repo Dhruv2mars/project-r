@@ -108,13 +108,13 @@ async fn is_recording(state: State<'_, AudioState>) -> Result<bool, String> {
 
 #[command]
 async fn record_audio_sample(duration_secs: u64) -> Result<String, String> {
-    println!("Recording audio for {} seconds...", duration_secs);
+    // Recording audio for {} seconds...
     audio::record_audio_to_file(duration_secs)
 }
 
 #[command]
 async fn initialize_whisper(state: State<'_, WhisperState>) -> Result<String, String> {
-    println!("Initializing Whisper model...");
+    // Initializing Whisper model...
     
     // Download model if needed
     let model_path = whisper::ensure_whisper_model().await?;
@@ -131,12 +131,12 @@ async fn transcribe_audio(
     audio_file_path: String,
     state: State<'_, WhisperState>
 ) -> Result<String, String> {
-    println!("Transcribing audio file: {}", audio_file_path);
+    // Transcribing audio file: {}
     
     let transcriber = state.transcriber.lock().map_err(|e| e.to_string())?;
     let transcription = transcriber.transcribe_audio_file(&audio_file_path)?;
     
-    println!("Transcription result: {}", transcription);
+    // Transcription result: {}
     Ok(transcription)
 }
 
@@ -147,7 +147,7 @@ async fn test_ollama_connection() -> Result<String, String> {
 
 #[command]
 async fn initialize_llm(state: State<'_, LLMState>) -> Result<String, String> {
-    println!("Initializing LLM connection...");
+    // Initializing LLM connection...
     
     // Test connection to Ollama
     state.client.check_connection().await?;
@@ -166,7 +166,7 @@ async fn generate_ai_response(
     llm_state: State<'_, LLMState>,
     db_state: State<'_, DatabaseState>
 ) -> Result<String, String> {
-    println!("Generating AI response for input: {}", userInput);
+    // Generating AI response for input: {}
     
     let response = llm_state.client
         .generate_session_response(&userInput, &currentCode, "gemma3n")
@@ -199,7 +199,7 @@ async fn test_tts() -> Result<String, String> {
 
 #[command]
 async fn initialize_tts(state: State<'_, TTSState>) -> Result<String, String> {
-    println!("Initializing TTS engine...");
+    // Initializing TTS engine...
     
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     engine.initialize()?;
@@ -212,7 +212,7 @@ async fn generate_and_play_speech(
     text: String,
     state: State<'_, TTSState>
 ) -> Result<String, String> {
-    println!("Generating and playing speech for: {}", text);
+    // Generating and playing speech for: {}
     
     // The text is already clean conversation text from structured output
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
@@ -372,7 +372,7 @@ async fn complete_practice_sheet(
     db_state: State<'_, DatabaseState>,
     _practice_state: State<'_, PracticeSheetState>
 ) -> Result<String, String> {
-    println!("Completing practice sheet: {} with score {}/{}", practiceSheetId, score, totalQuestions);
+    // Completing practice sheet: {} with score {}/{}
     
     // Store the practice attempt and mark as completed (scope the lock)
     {
@@ -382,7 +382,7 @@ async fn complete_practice_sheet(
         let sheet_title = db.get_practice_sheet_title(&practiceSheetId)
             .map_err(|e| format!("Failed to get practice sheet title: {}", e))?;
         
-        println!("Processing completion for practice sheet '{}' (ID: {})", sheet_title, practiceSheetId);
+        // Processing completion for practice sheet '{}' (ID: {})
         
         // Create practice attempt record
         db.create_practice_attempt(&practiceSheetId, &userAnswers, score, totalQuestions)
@@ -397,7 +397,7 @@ async fn complete_practice_sheet(
         db.store_practice_results_to_memory(&practiceSheetId, user_id)
             .map_err(|e| format!("Failed to store results to memory: {}", e))?;
         
-        println!("Successfully stored completion data for practice sheet: {}", practiceSheetId);
+        // Successfully stored completion data for practice sheet: {}
     }
     
     // Check if a redo task is already running for this practice sheet
@@ -405,7 +405,7 @@ async fn complete_practice_sheet(
         let running_tasks = RUNNING_REDO_TASKS.get_or_init(|| Mutex::new(HashSet::new()));
         let mut tasks = running_tasks.lock().map_err(|e| e.to_string())?;
         if tasks.contains(&practiceSheetId) {
-            println!("Redo generation already in progress for practice sheet: {}, skipping", practiceSheetId);
+            // Redo generation already in progress for practice sheet: {}, skipping
             return Ok("Practice sheet completed successfully".to_string());
         }
         tasks.insert(practiceSheetId.clone());
@@ -414,7 +414,7 @@ async fn complete_practice_sheet(
     // Start background redo generation (don't wait for it)
     let practice_sheet_id_clone = practiceSheetId.clone();
     
-    println!("Spawning background redo generation task for practice sheet: {}", practiceSheetId);
+    // Spawning background redo generation task for practice sheet: {}
     
     tokio::spawn(async move {
         // Add timeout to prevent indefinite running
@@ -433,7 +433,7 @@ async fn complete_practice_sheet(
         
         match result {
             Ok(Ok(_)) => {
-                println!("Background redo generation completed successfully for practice sheet: {}", practice_sheet_id_clone);
+                // Background redo generation completed successfully for practice sheet: {}
             },
             Ok(Err(e)) => {
                 eprintln!("Background redo generation failed for practice sheet {}: {}", practice_sheet_id_clone, e);
@@ -448,7 +448,7 @@ async fn complete_practice_sheet(
 }
 
 async fn generate_redo_questions_background_task(practice_sheet_id: String) -> Result<(), String> {
-    println!("Starting redo generation for practice sheet: {}", practice_sheet_id);
+    // Starting redo generation for practice sheet: {}
     
     // Create fresh database and LLM client connections for this background task
     let db = database::Database::new().map_err(|e| e.to_string())?;
@@ -461,7 +461,7 @@ async fn generate_redo_questions_background_task(practice_sheet_id: String) -> R
     let sheet_title = db.get_practice_sheet_title(&practice_sheet_id)
         .map_err(|e| format!("Failed to get title for practice sheet {}: {}", practice_sheet_id, e))?;
     
-    println!("Using isolated memory content for practice sheet '{}' (ID: {})", sheet_title, practice_sheet_id);
+    // Using isolated memory content for practice sheet '{}' (ID: {})
     
     // Generate redo questions using LLM with isolated memory content
     let new_questions = llm_client
@@ -469,7 +469,7 @@ async fn generate_redo_questions_background_task(practice_sheet_id: String) -> R
         .await
         .map_err(|e| format!("Failed to generate redo questions for practice sheet {}: {}", practice_sheet_id, e))?;
     
-    println!("Generated {} new questions for practice sheet: {}", new_questions.len(), practice_sheet_id);
+    // Generated {} new questions for practice sheet: {}
     
     // Replace questions and mark as redo ready
     db.replace_practice_sheet_questions(&practice_sheet_id, &new_questions)
@@ -478,7 +478,7 @@ async fn generate_redo_questions_background_task(practice_sheet_id: String) -> R
     db.mark_practice_sheet_redo_ready(&practice_sheet_id)
         .map_err(|e| format!("Failed to mark practice sheet {} as redo ready: {}", practice_sheet_id, e))?;
     
-    println!("Background redo generation completed successfully for practice sheet: {} ({})", sheet_title, practice_sheet_id);
+    // Background redo generation completed successfully for practice sheet: {} ({})
     Ok(())
 }
 

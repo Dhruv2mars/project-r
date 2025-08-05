@@ -61,6 +61,7 @@ function Home() {
   const [loadingMemory, setLoadingMemory] = useState(false)
   
   
+  
   // Redo polling state
   const [redoPollingInterval, setRedoPollingInterval] = useState<number | null>(null)
 
@@ -283,33 +284,33 @@ function Home() {
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', backgroundColor: '#f8f9fa' }}>
+    <div style={{ height: '100vh', display: 'flex', backgroundColor: '#f1f5f9' }}>
       {/* Sidebar */}
       <div style={{
-        width: sidebarCollapsed ? '60px' : '300px',
-        backgroundColor: '#ffffff',
+        width: sidebarCollapsed ? '60px' : '280px',
+        backgroundColor: '#f8f9fa',
         borderRight: '1px solid #e5e7eb',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 0.3s ease',
-        boxShadow: '2px 0 4px rgba(0, 0, 0, 0.1)'
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
       }}>
         {/* Sidebar Header */}
         <div style={{
-          padding: '16px',
+          padding: sidebarCollapsed ? '16px 12px' : '16px 20px',
           borderBottom: '1px solid #e5e7eb',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: sidebarCollapsed ? 'center' : 'space-between',
+          backgroundColor: '#f8f9fa'
         }}>
           {!sidebarCollapsed && (
             <h2 style={{ 
-              fontSize: '18px', 
+              fontSize: '16px', 
               fontWeight: '600', 
-              color: '#1f2937',
+              color: '#000000',
               margin: 0
             }}>
-              Session History
+              Sessions
             </h2>
           )}
           <button
@@ -318,33 +319,37 @@ function Home() {
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: '4px',
-              borderRadius: '4px',
-              color: '#6b7280'
+              padding: '6px',
+              borderRadius: '6px',
+              color: '#6b7280',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6'
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent'
             }}
           >
-            {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
         </div>
 
         {/* Session List */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {sessions.map((session) => (
+        <div style={{ flex: 1, overflowY: 'auto', padding: sidebarCollapsed ? '0' : '0' }}>
+          {!sidebarCollapsed && sessions.map((session) => (
             <div
               key={session.id}
               onClick={() => handleSessionClick(session)}
               style={{
-                padding: sidebarCollapsed ? '12px 8px' : '12px 16px',
-                borderBottom: '1px solid #f3f4f6',
+                padding: '12px 20px',
                 cursor: 'pointer',
-                backgroundColor: selectedSession?.id === session.id ? '#f0f9ff' : 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                backgroundColor: selectedSession?.id === session.id ? '#e5e7eb' : 'transparent',
+                transition: 'all 0.15s ease'
               }}
               onMouseOver={(e) => {
                 if (selectedSession?.id !== session.id) {
-                  e.currentTarget.style.backgroundColor = '#f9fafb'
+                  e.currentTarget.style.backgroundColor = '#f1f3f4'
                 }
               }}
               onMouseOut={(e) => {
@@ -353,28 +358,16 @@ function Home() {
                 }
               }}
             >
-              💬
-              {!sidebarCollapsed && (
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1f2937',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {session.title}
-                  </div>
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    marginTop: '2px'
-                  }}>
-                    {formatDate(session.updated_at)}
-                  </div>
-                </div>
-              )}
+              <div style={{
+                fontSize: '14px',
+                fontWeight: selectedSession?.id === session.id ? '600' : '500',
+                color: '#000000',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {session.title}
+              </div>
             </div>
           ))}
         </div>
@@ -387,7 +380,7 @@ function Home() {
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
             <div style={{
-              padding: '16px 24px',
+              padding: '16px 20px',
               borderBottom: '1px solid #e5e7eb',
               backgroundColor: '#ffffff',
               display: 'flex',
@@ -395,9 +388,9 @@ function Home() {
               justifyContent: 'space-between'
             }}>
               <h2 style={{
-                fontSize: '20px',
+                fontSize: '18px',
                 fontWeight: '600',
-                color: '#1f2937',
+                color: '#000000',
                 margin: 0
               }}>
                 {selectedSession.title}
@@ -408,9 +401,10 @@ function Home() {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  color: '#6b7280'
+                  padding: '6px',
+                  borderRadius: '6px',
+                  color: '#6b7280',
+                  transition: 'all 0.2s ease'
                 }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.backgroundColor = '#f3f4f6'
@@ -419,7 +413,7 @@ function Home() {
                   e.currentTarget.style.backgroundColor = 'transparent'
                 }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -427,62 +421,47 @@ function Home() {
             <div style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '24px',
+              padding: '20px',
               backgroundColor: '#ffffff'
             }}>
               {loading ? (
-                <div style={{ textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+                <div style={{ textAlign: 'center', color: '#000000', fontSize: '14px' }}>Loading...</div>
               ) : (
-                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                <div style={{ maxWidth: '100%' }}>
                   {messages.map((message) => (
                     <div
                       key={message.id}
                       style={{
-                        marginBottom: '24px',
+                        marginBottom: '20px',
                         display: 'flex',
-                        flexDirection: message.role === 'user' ? 'row-reverse' : 'row',
-                        alignItems: 'flex-start',
-                        gap: '12px'
+                        justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+                        paddingLeft: message.role === 'user' ? '60px' : '0',
+                        paddingRight: message.role === 'user' ? '0' : '60px'
                       }}
                     >
-                      <div style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '16px',
-                        backgroundColor: message.role === 'user' ? '#059669' : '#3b82f6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        flexShrink: 0
-                      }}>
-                        {message.role === 'user' ? 'U' : 'AI'}
-                      </div>
-                      <div style={{
-                        maxWidth: '70%',
-                        padding: '12px 16px',
-                        borderRadius: '12px',
-                        backgroundColor: message.role === 'user' ? '#f0f9ff' : '#f8fafc',
-                        border: '1px solid ' + (message.role === 'user' ? '#e0f2fe' : '#e2e8f0')
-                      }}>
+                      {message.role === 'user' ? (
                         <div style={{
-                          fontSize: '14px',
-                          lineHeight: '1.5',
-                          color: '#1f2937',
+                          padding: '14px 18px',
+                          borderRadius: '18px 18px 4px 18px',
+                          backgroundColor: '#d1d5db',
+                          fontSize: '15px',
+                          lineHeight: '1.4',
+                          color: '#000000',
+                          whiteSpace: 'pre-wrap',
+                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                        }}>
+                          {message.content}
+                        </div>
+                      ) : (
+                        <div style={{
+                          fontSize: '15px',
+                          lineHeight: '1.4',
+                          color: '#000000',
                           whiteSpace: 'pre-wrap'
                         }}>
                           {message.content}
                         </div>
-                        <div style={{
-                          fontSize: '11px',
-                          color: '#9ca3af',
-                          marginTop: '8px'
-                        }}>
-                          {formatDate(message.created_at)}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -496,130 +475,135 @@ function Home() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            backgroundColor: '#ffffff'
           }}>
-            <h1 style={{
-              fontSize: '48px',
-              fontWeight: '600',
-              color: '#1f2937',
-              marginBottom: '40px'
+            <div style={{
+              textAlign: 'center',
+              maxWidth: '500px',
+              margin: '0 32px'
             }}>
-              Project-R
-            </h1>
-
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button
-                onClick={handleStartLearning}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '16px 32px',
-                  fontSize: '18px',
-                  fontWeight: '500',
-                  backgroundColor: '#059669',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#047857'
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#059669'
-                }}
-              >
-                Start Learning
-              </button>
-
-              <button
-                onClick={handlePracticeClick}
-                disabled={loadingPractice}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '16px 32px',
-                  fontSize: '18px',
-                  fontWeight: '500',
-                  backgroundColor: '#7c3aed',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: loadingPractice ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  opacity: loadingPractice ? 0.5 : 1
-                }}
-                onMouseOver={(e) => {
-                  if (!loadingPractice) {
-                    e.currentTarget.style.backgroundColor = '#6d28d9'
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!loadingPractice) {
-                    e.currentTarget.style.backgroundColor = '#7c3aed'
-                  }
-                }}
-              >
-                📝 Practice
-              </button>
-
-              <button
-                onClick={handleSessionSummaries}
-                disabled={loadingMemory}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '16px 32px',
-                  fontSize: '18px',
-                  fontWeight: '500',
-                  backgroundColor: showMemoryViewer ? '#7c3aed' : '#6366f1',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: loadingMemory ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  opacity: loadingMemory ? 0.5 : 1
-                }}
-                onMouseOver={(e) => {
-                  if (!loadingMemory) {
-                    e.currentTarget.style.backgroundColor = showMemoryViewer ? '#6d28d9' : '#4f46e5'
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!loadingMemory) {
-                    e.currentTarget.style.backgroundColor = showMemoryViewer ? '#7c3aed' : '#6366f1'
-                  }
-                }}
-              >
-                {loadingMemory ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    📚
-                    {showMemoryViewer ? 'Hide Summaries' : 'Session Summaries'}
-                  </>
-                )}
-              </button>
-
-            </div>
-
-            {sessions.length > 0 && (
-              <p style={{
-                fontSize: '16px',
-                color: '#6b7280',
-                marginTop: '24px',
-                textAlign: 'center'
+              <h1 style={{
+                fontSize: '48px',
+                fontWeight: '700',
+                color: '#111827',
+                marginBottom: '16px',
+                letterSpacing: '-0.5px'
               }}>
-                Select a session from the sidebar to view your conversation history
+                Project-R
+              </h1>
+              <p style={{
+                fontSize: '18px',
+                color: '#000000',
+                marginBottom: '48px',
+                fontWeight: '400'
+              }}>
+                Your AI-powered Python learning companion
               </p>
-            )}
+
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  onClick={handleStartLearning}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '14px 28px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    backgroundColor: '#111827',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1f2937'
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '#111827'
+                  }}
+                >
+                  🚀 Start Learning
+                </button>
+
+                <button
+                  onClick={handlePracticeClick}
+                  disabled={loadingPractice}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '14px 28px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    backgroundColor: loadingPractice ? '#9ca3af' : '#374151',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: loadingPractice ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: loadingPractice ? 0.7 : 1
+                  }}
+                  onMouseOver={(e) => {
+                    if (!loadingPractice) {
+                      e.currentTarget.style.backgroundColor = '#4b5563'
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!loadingPractice) {
+                      e.currentTarget.style.backgroundColor = '#374151'
+                    }
+                  }}
+                >
+                  📝 Practice
+                </button>
+
+                <button
+                  onClick={handleSessionSummaries}
+                  disabled={loadingMemory}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '14px 28px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    backgroundColor: loadingMemory ? '#9ca3af' : (showMemoryViewer ? '#1f2937' : '#6b7280'),
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: loadingMemory ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: loadingMemory ? 0.7 : 1
+                  }}
+                  onMouseOver={(e) => {
+                    if (!loadingMemory) {
+                      e.currentTarget.style.backgroundColor = showMemoryViewer ? '#374151' : '#9ca3af'
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!loadingMemory) {
+                      e.currentTarget.style.backgroundColor = showMemoryViewer ? '#1f2937' : '#6b7280'
+                    }
+                  }}
+                >
+                  {loadingMemory ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      📚
+                      {showMemoryViewer ? 'Hide Summaries' : 'Session Summaries'}
+                    </>
+                  )}
+                </button>
+
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -685,7 +669,7 @@ function Home() {
               {practiceSheets.length === 0 ? (
                 <div style={{
                   textAlign: 'center',
-                  color: '#6b7280',
+                  color: '#000000',
                   padding: '40px',
                   fontSize: '16px'
                 }}>
@@ -735,7 +719,7 @@ function Home() {
                       </div>
                       <div style={{
                         fontSize: '14px',
-                        color: '#6b7280'
+                        color: '#000000'
                       }}>
                         Created: {formatDate(sheet.created_at)}
                       </div>
@@ -811,7 +795,7 @@ function Home() {
                   backgroundColor: '#f3f4f6',
                   borderRadius: '8px'
                 }}>
-                  <span style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                     Question {currentQuestionIndex + 1} of {practiceQuestions.length}
                   </span>
                   <div style={{
@@ -962,7 +946,7 @@ function Home() {
                   </div>
                   <div style={{
                     fontSize: '18px',
-                    color: '#6b7280'
+                    color: '#000000'
                   }}>
                     {Math.round((practiceQuestions.filter((q, index) => 
                       userAnswers[index] === q.correct_answer
@@ -1053,7 +1037,7 @@ function Home() {
                         
                         <div style={{
                           fontSize: '14px',
-                          color: '#6b7280',
+                          color: '#000000',
                           marginBottom: '4px'
                         }}>
                           Your answer: <span style={{ 

@@ -1,5 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { Play, Mic, MicOff, Loader2, ArrowLeft } from 'lucide-react'
+
+// Animated dots component
+const AnimatedDots = () => (
+  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+    <span style={{ animation: 'dot-blink 1.4s infinite both', animationDelay: '0s' }}>.</span>
+    <span style={{ animation: 'dot-blink 1.4s infinite both', animationDelay: '0.2s' }}>.</span>
+    <span style={{ animation: 'dot-blink 1.4s infinite both', animationDelay: '0.4s' }}>.</span>
+    <style>{`
+      @keyframes dot-blink {
+        0%, 20% { opacity: 0; }
+        50% { opacity: 1; }
+        80%, 100% { opacity: 0; }
+      }
+    `}</style>
+  </span>
+)
 import { invoke } from '@tauri-apps/api/core'
 import { useNavigate } from 'react-router-dom'
 
@@ -29,6 +45,7 @@ function Session() {
   // Voice interaction state
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const [whisperInitialized, setWhisperInitialized] = useState(false)
   const [llmInitialized, setLlmInitialized] = useState(false)
   const [ttsInitialized, setTtsInitialized] = useState(false)
@@ -37,26 +54,19 @@ function Session() {
   useEffect(() => {
     const initializeAI = async () => {
       try {
-        setOutput('🚀 Initializing Project-R AI systems...')
-        
         // Initialize Whisper (Speech-to-Text)
-        setOutput('🎵 Initializing speech recognition (Whisper)...')
         await invoke<string>('initialize_whisper')
         setWhisperInitialized(true)
         
         // Initialize LLM (AI Conversation)
-        setOutput('🤖 Connecting to AI assistant (Ollama + Gemma)...')
         await invoke<string>('initialize_llm')
         setLlmInitialized(true)
         
         // Initialize TTS (Text-to-Speech)
-        setOutput('🗣️ Initializing text-to-speech (System TTS)...')
         await invoke<string>('initialize_tts')
         setTtsInitialized(true)
-        
-        setOutput('✅ All systems ready! Full audio-audio conversation pipeline is active.\n\n🎯 Click the Voice button to start talking with your AI Python tutor!')
       } catch (error) {
-        setOutput(`❌ Failed to initialize AI systems: ${error}`)
+        console.error('Failed to initialize AI systems:', error)
       }
     }
 
@@ -186,7 +196,6 @@ function Session() {
 
   const handleVoiceInteraction = async () => {
     if (!whisperInitialized || !llmInitialized || !ttsInitialized) {
-      setOutput('🔄 AI systems not ready. Please wait for all components to initialize...')
       return
     }
 
@@ -194,12 +203,12 @@ function Session() {
       // Stop recording and process complete audio-audio pipeline
       setIsRecording(false)
       setIsProcessing(true)
-      setOutput('🎙️ Processing your voice...')
+      // Processing your voice...
       
       try {
         // Step 1: Stop recording and get the audio file path
         const audioFilePath = await invoke<string>('stop_recording')
-        setOutput('🎵 Transcribing speech with Whisper...')
+        // Transcribing speech with Whisper...
         
         // Step 2: Transcribe the audio using Whisper
         const transcription = await invoke<string>('transcribe_audio', { 
@@ -207,11 +216,11 @@ function Session() {
         })
         
         if (!transcription.trim()) {
-          setOutput('❌ No speech detected. Please try again.')
+          // No speech detected
           return
         }
 
-        setOutput(`You said: "${transcription}"\n\n🤖 AI is thinking...`)
+        // AI is thinking...
         
         // Create new session if this is the first message
         let sessionIdToUse = conversationSessionId
@@ -229,28 +238,30 @@ function Session() {
         // Parse the AI response
         const aiResponse = JSON.parse(aiResponseJson)
         
-        // Update the output with the conversation response
-        setOutput(`You: "${transcription}"\n\nAI Tutor: ${aiResponse.conversation_response}`)
+        // Don't show conversation response in terminal since user gets audio
         
         // Step 4: Update code if the AI provided new code
         if (aiResponse.code_to_insert && aiResponse.code_to_insert.trim()) {
           setCode(cleanCodeForEditor(aiResponse.code_to_insert))
-          setOutput(prev => prev + `\n\n📝 Code has been updated!`)
+          // Code has been updated
         }
         
         // Step 5: Generate and play TTS response to complete audio-audio pipeline
-        setOutput(prev => prev + `\n\n🗣️ Speaking response...`)
+        setIsSpeaking(true)
+        setIsProcessing(false)
         
         await invoke<string>('generate_and_play_speech', {
           text: aiResponse.conversation_response
         })
         
-        setOutput(prev => prev + `\n\n✅ Complete audio-audio conversation cycle completed!`)
+        setIsSpeaking(false)
+        // Complete audio-audio conversation cycle completed
         
       } catch (error) {
-        setOutput(`❌ Voice processing error: ${error}`)
+        console.error('Voice processing error:', error)
       } finally {
         setIsProcessing(false)
+        setIsSpeaking(false)
       }
     } else {
       // Start recording
@@ -262,10 +273,10 @@ function Session() {
         // Start recording
         await invoke<string>('start_recording')
         setIsRecording(true)
-        setOutput('🎤 Listening... Speak your question to the AI tutor. Click mic button again to stop.')
+        // Listening...
         
       } catch (error) {
-        setOutput(`❌ Microphone error: ${error}`)
+        console.error('Microphone error:', error)
       }
     }
   }
@@ -277,224 +288,334 @@ function Session() {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between', 
-        padding: '16px', 
-        backgroundColor: 'white', 
-        borderBottom: '1px solid #e5e7eb' 
+        padding: '12px 20px', 
+        backgroundColor: '#ffffff', 
+        borderBottom: '1px solid #e5e7eb'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            onClick={async () => {
-              // Generate session summary and practice sheet if there's an active conversation
-              if (conversationSessionId && !isNewSession) {
-                try {
-                  setOutput(prev => prev + '\n\n📝 Generating session summary...')
-                  const summary = await invoke<string>('generate_session_summary', { sessionId: conversationSessionId })
-                  setOutput(prev => prev + '\n✅ Session summary saved to memory!')
-                  
-                  // Extract and update session title from summary
-                  try {
-                    const titleMatch = summary.match(/Session name:\s*(.+?)(?:\n|$)/i)
-                    if (titleMatch && titleMatch[1]) {
-                      const extractedTitle = titleMatch[1].trim()
-                      await invoke('update_session_title', { 
-                        sessionId: conversationSessionId, 
-                        title: extractedTitle 
-                      })
-                      setOutput(prev => prev + '\n📝 Session title updated!')
-                    }
-                  } catch (error) {
-                    console.error('Failed to update session title:', error)
-                  }
-                  
-                  // Generate practice sheet from the summary
-                  setOutput(prev => prev + '\n📝 Generating practice sheet...')
-                  await invoke('generate_practice_sheet_from_summary', { 
-                    summary: summary, 
-                    sessionId: conversationSessionId 
-                  })
-                  setOutput(prev => prev + '\n✅ Practice sheet created!')
-                } catch (error) {
-                  console.error('Failed to generate session content:', error)
-                  setOutput(prev => prev + '\n❌ Failed to generate session content')
-                }
-              }
-              
-              // Navigate back and refresh session list
-              navigate('/', { replace: true })
-              window.location.reload()
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = '#e5e7eb'
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.backgroundColor = '#f3f4f6'
-            }}
-          >
-            <ArrowLeft size={14} />
-            Exit
-          </button>
-          <h1 style={{ fontSize: '20px', fontWeight: '600', color: '#1f2937' }}>Project-R</h1>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            onClick={handleVoiceInteraction}
-            disabled={!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              backgroundColor: isRecording ? '#dc2626' : '#059669',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: (!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing) ? 'not-allowed' : 'pointer',
-              opacity: (!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing) ? 0.5 : 1
-            }}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Processing...
-              </>
-            ) : isRecording ? (
-              <>
-                <MicOff size={16} />
-                Stop
-              </>
-            ) : (
-              <>
-                <Mic size={16} />
-                Voice
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleRunCode}
-            disabled={isRunning || isInteractive}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: (isRunning || isInteractive) ? 'not-allowed' : 'pointer',
-              opacity: (isRunning || isInteractive) ? 0.5 : 1
-            }}
-          >
-            <Play size={16} />
-            {isRunning ? 'Running...' : (isInteractive ? 'Program Running...' : 'Run')}
-          </button>
-        </div>
+        <h1 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>Project-R</h1>
+        <div></div>
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', padding: '16px', gap: '16px' }}>
-        {/* Simple Text Editor */}
-        <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, display: 'flex', padding: '24px', gap: '24px' }}>
+        {/* Code Editor */}
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          background: 'white',
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#f9fafb',
+            borderBottom: '1px solid #e5e7eb',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#374151',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            Code Editor
+          </div>
           <textarea
             value={code}
             onChange={(e) => setCode(e.target.value)}
             style={{
-              width: '100%',
-              height: '100%',
+              flex: 1,
               padding: '16px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              fontFamily: 'monospace',
+              border: 'none',
+              borderRadius: '0',
+              fontFamily: '"JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", monospace',
               fontSize: '14px',
+              lineHeight: '1.6',
               resize: 'none',
-              outline: 'none'
+              outline: 'none',
+              backgroundColor: '#ffffff',
+              color: '#374151'
             }}
-            placeholder="Write your Python code here..."
+            placeholder="# Write your Python code here...
+# Try using variables, functions, loops, and more!
+
+print('Hello, Project-R!')
+"
           />
         </div>
 
         {/* Output Console */}
-        <div style={{ flex: 1 }}>
-          <div style={{ height: '100%' }}>
-            <div style={{
-              height: '32px',
-              backgroundColor: '#1f2937',
-              color: 'white',
-              padding: '4px 16px',
-              fontSize: '14px',
-              fontWeight: '500',
-              borderTopLeftRadius: '8px',
-              borderTopRightRadius: '8px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          background: 'white',
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#f9fafb',
+            borderBottom: '1px solid #e5e7eb',
+            color: '#374151',
+            fontSize: '14px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               Output
+              {isInteractive && (
+                <span style={{
+                  fontSize: '11px',
+                  backgroundColor: '#059669',
+                  color: 'white',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontWeight: '500'
+                }}>
+                  INTERACTIVE
+                </span>
+              )}
             </div>
-            <div 
+            <button
+              onClick={handleRunCode}
+              disabled={isRunning || isInteractive}
               style={{
-                height: 'calc(100% - 32px)',
-                backgroundColor: '#111827',
-                color: '#10b981',
-                padding: '16px',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                overflow: 'auto',
-                borderBottomLeftRadius: '8px',
-                borderBottomRightRadius: '8px',
-                position: 'relative'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                backgroundColor: (isRunning || isInteractive) ? '#9ca3af' : '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: (isRunning || isInteractive) ? 'not-allowed' : 'pointer',
+                opacity: (isRunning || isInteractive) ? 0.7 : 1,
+                fontSize: '12px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
               }}
-              onClick={() => {
-                if (isInteractive) {
-                  // Focus on the input field when terminal is clicked
-                  const inputElement = document.getElementById('terminal-input')
-                  if (inputElement) {
-                    inputElement.focus()
-                  }
+              onMouseOver={(e) => {
+                if (!isRunning && !isInteractive) {
+                  e.currentTarget.style.backgroundColor = '#1d4ed8'
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!isRunning && !isInteractive) {
+                  e.currentTarget.style.backgroundColor = '#2563eb'
                 }
               }}
             >
-              <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{output}</pre>
-              {isInteractive && (
-                <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center' }}>
-                  <input
-                    id="terminal-input"
-                    type="text"
-                    value={currentInput}
-                    onChange={(e) => setCurrentInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleTerminalInput(currentInput)
-                      }
-                    }}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      outline: 'none',
-                      color: '#10b981',
-                      fontFamily: 'monospace',
-                      fontSize: '14px',
-                      width: '100%'
-                    }}
-                    placeholder="Type here and press Enter..."
-                    autoFocus
-                  />
-                </div>
-              )}
-            </div>
+              <Play size={14} />
+              {isRunning ? 'Running...' : (isInteractive ? 'Running...' : 'Run')}
+            </button>
+          </div>
+          <div 
+            style={{
+              flex: 1,
+              backgroundColor: '#ffffff',
+              color: '#000000',
+              padding: '16px',
+              fontFamily: '"JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", monospace',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              overflow: 'auto',
+              position: 'relative',
+              cursor: isInteractive ? 'text' : 'default'
+            }}
+            onClick={() => {
+              if (isInteractive) {
+                // Focus on the input field when terminal is clicked
+                const inputElement = document.getElementById('terminal-input')
+                if (inputElement) {
+                  inputElement.focus()
+                }
+              }
+            }}
+          >
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, minHeight: '20px' }}>{output}</pre>
+            {isInteractive && (
+              <div style={{ 
+                marginTop: '8px', 
+                display: 'flex', 
+                alignItems: 'center',
+                backgroundColor: '#f3f4f6',
+                padding: '6px 8px',
+                borderRadius: '4px',
+                border: '1px solid #d1d5db'
+              }}>
+                <span style={{ color: '#000000', marginRight: '6px', fontWeight: '600' }}>→</span>
+                <input
+                  id="terminal-input"
+                  type="text"
+                  value={currentInput}
+                  onChange={(e) => setCurrentInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleTerminalInput(currentInput)
+                    }
+                  }}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: '#000000',
+                    fontFamily: '"JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", monospace',
+                    fontSize: '14px',
+                    width: '100%',
+                    fontWeight: '500'
+                  }}
+                  placeholder="Type your input and press Enter..."
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Bottom Footer */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '16px 20px', 
+        backgroundColor: '#ffffff', 
+        borderTop: '1px solid #e5e7eb',
+        gap: '16px'
+      }}>
+        <button
+          onClick={handleVoiceInteraction}
+          disabled={!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing || isSpeaking}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            backgroundColor: (!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing || isSpeaking) ? '#9ca3af' : 
+                       (isRecording ? '#dc2626' : '#059669'),
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: (!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing || isSpeaking) ? 'not-allowed' : 'pointer',
+            opacity: (!whisperInitialized || !llmInitialized || !ttsInitialized || isProcessing || isSpeaking) ? 0.7 : 1,
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            if (whisperInitialized && llmInitialized && ttsInitialized && !isProcessing && !isSpeaking) {
+              e.currentTarget.style.backgroundColor = isRecording ? '#b91c1c' : '#047857'
+            }
+          }}
+          onMouseOut={(e) => {
+            if (whisperInitialized && llmInitialized && ttsInitialized && !isProcessing && !isSpeaking) {
+              e.currentTarget.style.backgroundColor = isRecording ? '#dc2626' : '#059669'
+            }
+          }}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              AI thinking<AnimatedDots />
+              <style>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+            </>
+          ) : isSpeaking ? (
+            <>
+              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              AI speaking<AnimatedDots />
+              <style>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+            </>
+          ) : isRecording ? (
+            <>
+              <MicOff size={16} />
+              Stop
+            </>
+          ) : (
+            <>
+              <Mic size={16} />
+              Mic
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={async () => {
+            // Capture variables before navigation since component will unmount
+            const sessionId = conversationSessionId
+            const isNew = isNewSession
+            
+            // Navigate back immediately
+            navigate('/', { replace: true })
+            
+            // Then run background processing if there's an active conversation
+            if (sessionId && !isNew) {
+              try {
+                const summary = await invoke<string>('generate_session_summary', { sessionId: sessionId })
+                
+                // Extract and update session title from summary
+                try {
+                  const titleMatch = summary.match(/Session name:\s*(.+?)(?:\n|$)/i)
+                  if (titleMatch && titleMatch[1]) {
+                    const extractedTitle = titleMatch[1].trim()
+                    await invoke('update_session_title', { 
+                      sessionId: sessionId, 
+                      title: extractedTitle 
+                    })
+                  }
+                } catch (error) {
+                  console.error('Failed to update session title:', error)
+                }
+                
+                // Generate practice sheet from the summary
+                await invoke('generate_practice_sheet_from_summary', { 
+                  summary: summary, 
+                  sessionId: sessionId 
+                })
+              } catch (error) {
+                console.error('Failed to generate session content:', error)
+              }
+            }
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            backgroundColor: '#dc2626',
+            color: 'white',
+            border: '1px solid #dc2626',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = '#b91c1c'
+            e.currentTarget.style.borderColor = '#b91c1c'
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = '#dc2626'
+            e.currentTarget.style.borderColor = '#dc2626'
+          }}
+        >
+          Exit
+        </button>
       </div>
 
     </div>
