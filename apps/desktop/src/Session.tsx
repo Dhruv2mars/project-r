@@ -317,9 +317,24 @@ function Session() {
             color: '#374151',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            justifyContent: 'space-between'
           }}>
-            Code Editor
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Code Editor
+            </div>
+            <div style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: '500',
+              borderRadius: '4px',
+              visibility: 'hidden'
+            }}>
+              <Play size={14} />
+              Run
+            </div>
           </div>
           <textarea
             value={code}
