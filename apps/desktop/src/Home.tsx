@@ -61,14 +61,17 @@ function Home() {
 
   useEffect(() => {
     loadSessions()
-    
+  }, [])
+
+  // Separate useEffect to handle practice sheets navigation
+  useEffect(() => {
     // Check if we should open practice sheets (coming back from practice quiz)
     const shouldShowPracticeSheets = sessionStorage.getItem('showPracticeSheets')
     if (shouldShowPracticeSheets === 'true') {
       sessionStorage.removeItem('showPracticeSheets')
       handlePracticeClick()
     }
-  }, [])
+  }, []) // This will run after the component mounts and handlePracticeClick is defined
 
   const loadSessions = async () => {
     try {
