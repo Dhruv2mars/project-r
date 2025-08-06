@@ -42,145 +42,81 @@ class SpeechService {
   }
 
   async startRecording(): Promise<string> {
-    console.log('Starting speech recognition...')
+    console.log('=== STARTING SPEECH RECOGNITION DEBUG ===')
+    console.log('Recognition instance:', this.recognition)
+    console.log('Is initialized:', this.isInitialized)
+    console.log('Navigator online:', navigator.onLine)
+    console.log('Secure context:', window.isSecureContext)
     
     if (!this.recognition || !this.isInitialized) {
-      console.error('Speech recognition not initialized')
-      throw new Error('Speech recognition not available')
-    }
-
-    // Check internet connectivity first (required for Chrome's speech recognition)
-    if (!navigator.onLine) {
-      throw new Error('Internet connection required for speech recognition. Please check your connection and try again.')
-    }
-
-    // Test connectivity to Google's servers
-    try {
-      const testUrl = 'https://www.google.com/favicon.ico'
-      const response = await fetch(testUrl, { 
-        method: 'HEAD', 
-        mode: 'no-cors',
-        cache: 'no-cache'
-      })
-      console.log('Network connectivity test passed')
-    } catch (networkError) {
-      console.error('Network connectivity test failed:', networkError)
-      throw new Error('Cannot reach speech recognition service. Please check your internet connection and try again.')
-    }
-
-    // Check microphone permissions
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      stream.getTracks().forEach(track => track.stop()) // Close the stream immediately
-      console.log('Microphone permission granted')
-    } catch (permissionError) {
-      console.error('Microphone permission denied:', permissionError)
-      throw new Error('Microphone access denied. Please allow microphone permissions and try again.')
+      console.error('❌ Speech recognition not available')
+      throw new Error('Speech recognition not available in this browser. Please use Chrome.')
     }
 
     return new Promise((resolve, reject) => {
       let finalTranscript = ''
-      let timeoutId: number
-      let hasStarted = false
+      let resolved = false
 
-      // Set a timeout to prevent hanging
-      timeoutId = setTimeout(() => {
-        console.log('Speech recognition timeout')
-        this.recognition?.stop()
-        if (finalTranscript.trim()) {
-          resolve(finalTranscript.trim())
-        } else {
-          reject(new Error('Recording timeout - no speech detected'))
-        }
-      }, 15000) // 15 second timeout
-
+      // Minimal event handlers with maximum logging
       this.recognition!.onstart = () => {
-        console.log('Speech recognition started')
-        hasStarted = true
+        console.log('✅ Speech recognition STARTED successfully')
       }
 
       this.recognition!.onresult = (event: SpeechRecognitionEvent) => {
-        console.log('Speech recognition result received')
-        let interimTranscript = ''
+        console.log('📝 Speech recognition RESULT received:', event)
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript
+          console.log(`Result ${i}: "${transcript}" (final: ${event.results[i].isFinal})`)
           
           if (event.results[i].isFinal) {
             finalTranscript += transcript
-            console.log('Final transcript:', transcript)
-          } else {
-            interimTranscript += transcript
-            console.log('Interim transcript:', transcript)
+            if (!resolved) {
+              resolved = true
+              console.log('🎉 Final transcript:', finalTranscript.trim())
+              resolve(finalTranscript.trim())
+            }
           }
-        }
-
-        // If we have a final result, resolve immediately
-        if (finalTranscript.trim()) {
-          console.log('Resolving with final transcript:', finalTranscript.trim())
-          clearTimeout(timeoutId)
-          resolve(finalTranscript.trim())
         }
       }
 
       this.recognition!.onerror = (event: SpeechRecognitionErrorEvent) => {
-        clearTimeout(timeoutId)
-        console.error('Speech recognition error:', event.error, event.message)
+        console.error('❌ SPEECH RECOGNITION ERROR:', {
+          error: event.error,
+          message: event.message,
+          type: event.type,
+          timestamp: new Date().toISOString()
+        })
         
-        let errorMessage = 'Speech recognition failed'
-        switch (event.error) {
-          case 'no-speech':
-            errorMessage = 'No speech was detected. Please speak clearly and try again.'
-            break
-          case 'audio-capture':
-            errorMessage = 'Audio capture failed. Please check your microphone and try again.'
-            break
-          case 'not-allowed':
-            errorMessage = 'Microphone access denied. Please enable microphone permissions in your browser.'
-            break
-          case 'network':
-            errorMessage = 'Network connection failed. Speech recognition requires internet access to Google\'s servers. Please check your connection and try again.'
-            break
-          case 'service-not-allowed':
-            errorMessage = 'Speech recognition service not allowed. Please check your browser settings.'
-            break
-          case 'bad-grammar':
-            errorMessage = 'Speech recognition grammar error. Please try again.'
-            break
-          case 'language-not-supported':
-            errorMessage = 'Language not supported for speech recognition.'
-            break
-          default:
-            errorMessage = `Speech recognition error: ${event.error}. Please try again.`
+        if (!resolved) {
+          resolved = true
+          // Log the EXACT error we're getting
+          reject(new Error(`ACTUAL ERROR: ${event.error} - ${event.message || 'No message'}`))
         }
-        
-        reject(new Error(errorMessage))
       }
 
       this.recognition!.onend = () => {
-        console.log('Speech recognition ended')
-        clearTimeout(timeoutId)
+        console.log('🔚 Speech recognition ENDED')
+        console.log('Final transcript at end:', finalTranscript)
         
-        if (!hasStarted) {
-          reject(new Error('Speech recognition failed to start'))
-          return
-        }
-        
-        if (finalTranscript.trim()) {
-          resolve(finalTranscript.trim())
-        } else {
-          reject(new Error('No speech was recognized. Please speak clearly and try again.'))
+        if (!resolved) {
+          resolved = true
+          if (finalTranscript.trim()) {
+            resolve(finalTranscript.trim())
+          } else {
+            reject(new Error('Speech recognition ended without results'))
+          }
         }
       }
 
-      // Start recording
+      // Attempt to start with maximum logging
       try {
-        console.log('Calling recognition.start()')
+        console.log('🎤 Attempting to start recognition...')
         this.recognition!.start()
-      } catch (error) {
-        console.error('Failed to start recognition:', error)
-        clearTimeout(timeoutId)
-        reject(new Error('Failed to start speech recognition'))
+        console.log('✅ Recognition.start() called successfully')
+      } catch (startError) {
+        console.error('❌ Error calling start():', startError)
+        reject(new Error(`Failed to start: ${startError}`))
       }
     })
   }
@@ -278,6 +214,21 @@ class SpeechService {
     })
   }
 
+  // Reset recognition instance to handle Chrome's session issues
+  resetRecognition(): void {
+    console.log('Resetting speech recognition instance')
+    if (this.recognition) {
+      try {
+        this.recognition.abort()
+      } catch (error) {
+        console.log('Error aborting recognition:', error)
+      }
+    }
+    
+    // Re-initialize recognition
+    this.initializeRecognition()
+  }
+
   // Diagnostic function to test speech recognition
   async testSpeechRecognition(): Promise<string> {
     console.log('=== Speech Recognition Test ===')
@@ -302,6 +253,43 @@ class SpeechService {
       return `Microphone test failed: ${error}`
     }
   }
+
+  // Simple standalone test that can be called from console
+  simpleTest(): void {
+    console.log('🧪 SIMPLE SPEECH TEST - Click allow on microphone and speak')
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    
+    if (!SpeechRecognition) {
+      console.error('❌ SpeechRecognition not supported')
+      return
+    }
+    
+    const recognition = new SpeechRecognition()
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+    
+    recognition.onstart = () => console.log('🎤 Recording started - SPEAK NOW!')
+    recognition.onresult = (event: any) => {
+      console.log('📝 Got result:', event.results[0][0].transcript)
+    }
+    recognition.onerror = (event: any) => {
+      console.error('❌ Error:', event.error, event.message)
+    }
+    recognition.onend = () => console.log('🔚 Recording ended')
+    
+    try {
+      recognition.start()
+      console.log('✅ Started successfully')
+    } catch (error) {
+      console.error('❌ Failed to start:', error)
+    }
+  }
 }
 
 export const speechService = new SpeechService()
+
+// Make available globally for debugging
+;(window as any).speechService = speechService
+;(window as any).testSpeech = () => speechService.simpleTest()
