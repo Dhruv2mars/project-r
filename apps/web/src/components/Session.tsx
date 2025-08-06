@@ -44,6 +44,7 @@ function Session() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speechInitialized, setSpeechInitialized] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   // Get store actions
   const {
@@ -86,6 +87,27 @@ function Session() {
     }
 
     initializeSpeech()
+  }, [])
+
+  // Monitor network status changes
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Network status: online')
+      setIsOnline(true)
+    }
+    
+    const handleOffline = () => {
+      console.log('Network status: offline')
+      setIsOnline(false)
+    }
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
 
   // Function to create a new conversation session
@@ -170,7 +192,7 @@ function Session() {
     }
   }
 
-  const handleVoiceInteraction = async () => {
+  const handleVoiceInteraction = async (retryCount = 0) => {
     if (!speechInitialized) {
       alert('Speech services not available. Please ensure you are using Chrome and have microphone permissions.')
       return
@@ -239,9 +261,21 @@ function Session() {
       setIsProcessing(false)
       setIsSpeaking(false)
       
-      // Show detailed error message
       const errorMessage = error instanceof Error ? error.message : 'Voice interaction failed. Please try again.'
-      alert(errorMessage)
+      
+      // Handle network errors with retry option
+      if (errorMessage.includes('Network') || errorMessage.includes('internet') || errorMessage.includes('connection')) {
+        if (retryCount < 2) {
+          const shouldRetry = confirm(`${errorMessage}\n\nWould you like to retry? (Attempt ${retryCount + 1}/3)`)
+          if (shouldRetry) {
+            setTimeout(() => handleVoiceInteraction(retryCount + 1), 1000)
+            return
+          }
+        }
+        alert(`${errorMessage}\n\nNote: Speech recognition requires a stable internet connection to work properly.`)
+      } else {
+        alert(errorMessage)
+      }
     }
   }
 
@@ -435,6 +469,7 @@ print('Hello, Project-R!')
 
       {/* Bottom Footer */}
       <div style={{ 
+        position: 'relative',
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center', 
@@ -445,30 +480,30 @@ print('Hello, Project-R!')
       }}>
         <button
           onClick={handleVoiceInteraction}
-          disabled={!speechInitialized || isProcessing || isSpeaking}
+          disabled={!speechInitialized || !isOnline || isProcessing || isSpeaking}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             padding: '8px 16px',
-            backgroundColor: (!speechInitialized || isProcessing || isSpeaking) ? '#9ca3af' : 
+            backgroundColor: (!speechInitialized || !isOnline || isProcessing || isSpeaking) ? '#9ca3af' : 
                        (isRecording ? '#dc2626' : '#059669'),
             color: 'white',
             border: 'none',
             borderRadius: '6px',
-            cursor: (!speechInitialized || isProcessing || isSpeaking) ? 'not-allowed' : 'pointer',
-            opacity: (!speechInitialized || isProcessing || isSpeaking) ? 0.7 : 1,
+            cursor: (!speechInitialized || !isOnline || isProcessing || isSpeaking) ? 'not-allowed' : 'pointer',
+            opacity: (!speechInitialized || !isOnline || isProcessing || isSpeaking) ? 0.7 : 1,
             fontSize: '14px',
             fontWeight: '500',
             transition: 'all 0.2s ease'
           }}
           onMouseOver={(e) => {
-            if (speechInitialized && !isProcessing && !isSpeaking) {
+            if (speechInitialized && isOnline && !isProcessing && !isSpeaking) {
               e.currentTarget.style.backgroundColor = isRecording ? '#b91c1c' : '#047857'
             }
           }}
           onMouseOut={(e) => {
-            if (speechInitialized && !isProcessing && !isSpeaking) {
+            if (speechInitialized && isOnline && !isProcessing && !isSpeaking) {
               e.currentTarget.style.backgroundColor = isRecording ? '#dc2626' : '#059669'
             }
           }}
@@ -487,6 +522,16 @@ print('Hello, Project-R!')
             <>
               <MicOff size={16} />
               Listening...
+            </>
+          ) : !isOnline ? (
+            <>
+              <Mic size={16} />
+              Offline
+            </>
+          ) : !speechInitialized ? (
+            <>
+              <Mic size={16} />
+              Unavailable
             </>
           ) : (
             <>
@@ -547,6 +592,27 @@ print('Hello, Project-R!')
         >
           Exit
         </button>
+        
+        {/* Network Status Indicator */}
+        <div style={{
+          position: 'absolute',
+          right: '16px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '12px',
+          color: isOnline ? '#059669' : '#dc2626'
+        }}>
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: isOnline ? '#059669' : '#dc2626'
+          }} />
+          {isOnline ? 'Connected' : 'Offline'}
+        </div>
       </div>
 
       <style>{`

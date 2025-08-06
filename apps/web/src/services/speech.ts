@@ -49,7 +49,26 @@ class SpeechService {
       throw new Error('Speech recognition not available')
     }
 
-    // Check microphone permissions first
+    // Check internet connectivity first (required for Chrome's speech recognition)
+    if (!navigator.onLine) {
+      throw new Error('Internet connection required for speech recognition. Please check your connection and try again.')
+    }
+
+    // Test connectivity to Google's servers
+    try {
+      const testUrl = 'https://www.google.com/favicon.ico'
+      const response = await fetch(testUrl, { 
+        method: 'HEAD', 
+        mode: 'no-cors',
+        cache: 'no-cache'
+      })
+      console.log('Network connectivity test passed')
+    } catch (networkError) {
+      console.error('Network connectivity test failed:', networkError)
+      throw new Error('Cannot reach speech recognition service. Please check your internet connection and try again.')
+    }
+
+    // Check microphone permissions
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       stream.getTracks().forEach(track => track.stop()) // Close the stream immediately
@@ -111,19 +130,28 @@ class SpeechService {
         let errorMessage = 'Speech recognition failed'
         switch (event.error) {
           case 'no-speech':
-            errorMessage = 'No speech was detected. Please try again.'
+            errorMessage = 'No speech was detected. Please speak clearly and try again.'
             break
           case 'audio-capture':
-            errorMessage = 'Audio capture failed. Please check your microphone.'
+            errorMessage = 'Audio capture failed. Please check your microphone and try again.'
             break
           case 'not-allowed':
-            errorMessage = 'Microphone access not allowed. Please enable microphone permissions.'
+            errorMessage = 'Microphone access denied. Please enable microphone permissions in your browser.'
             break
           case 'network':
-            errorMessage = 'Network error occurred during speech recognition.'
+            errorMessage = 'Network connection failed. Speech recognition requires internet access to Google\'s servers. Please check your connection and try again.'
+            break
+          case 'service-not-allowed':
+            errorMessage = 'Speech recognition service not allowed. Please check your browser settings.'
+            break
+          case 'bad-grammar':
+            errorMessage = 'Speech recognition grammar error. Please try again.'
+            break
+          case 'language-not-supported':
+            errorMessage = 'Language not supported for speech recognition.'
             break
           default:
-            errorMessage = `Speech recognition error: ${event.error}`
+            errorMessage = `Speech recognition error: ${event.error}. Please try again.`
         }
         
         reject(new Error(errorMessage))
