@@ -20,6 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "api"],
+  "include": ["src", "src/types/global.d.ts"],
+  "exclude": ["api"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

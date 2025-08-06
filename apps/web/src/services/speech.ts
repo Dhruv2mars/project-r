@@ -15,10 +15,12 @@ class SpeechService {
       
       if (SpeechRecognition) {
         this.recognition = new SpeechRecognition()
-        this.recognition.continuous = false
-        this.recognition.interimResults = true
-        this.recognition.lang = 'en-US'
-        this.isInitialized = true
+        if (this.recognition) {
+          this.recognition.continuous = false
+          this.recognition.interimResults = true
+          this.recognition.lang = 'en-US'
+          this.isInitialized = true
+        }
       } else {
         console.warn('Speech Recognition not supported in this browser')
       }
@@ -34,7 +36,7 @@ class SpeechService {
 
     return new Promise((resolve, reject) => {
       let finalTranscript = ''
-      let timeoutId: NodeJS.Timeout
+      let timeoutId: number
 
       // Set a timeout to prevent hanging
       timeoutId = setTimeout(() => {
@@ -46,7 +48,7 @@ class SpeechService {
         }
       }, 30000) // 30 second timeout
 
-      this.recognition!.onresult = (event) => {
+      this.recognition!.onresult = (event: SpeechRecognitionEvent) => {
         let interimTranscript = ''
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -66,7 +68,7 @@ class SpeechService {
         }
       }
 
-      this.recognition!.onerror = (event) => {
+      this.recognition!.onerror = (event: SpeechRecognitionErrorEvent) => {
         clearTimeout(timeoutId)
         console.error('Speech recognition error:', event.error)
         reject(new Error(`Speech recognition error: ${event.error}`))

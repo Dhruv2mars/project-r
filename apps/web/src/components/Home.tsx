@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
-import type { Session, Message, PracticeSheet, PracticeQuestion } from '../types'
+import type { Session, PracticeSheet, PracticeQuestion } from '../types'
 
 function Home() {
   const navigate = useNavigate()

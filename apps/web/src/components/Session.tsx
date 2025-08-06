@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Play, Mic, MicOff, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../stores/appStore'
-import { judge0Service, speechService, openRouterService } from '../services'
+import { speechService } from '../services'
 
 // Animated dots component
 const AnimatedDots = () => (
@@ -49,7 +49,6 @@ function Session() {
   const {
     createSession,
     addMessage,
-    updateSessionTitle,
     generateResponse,
     executeCode,
     startRecording,

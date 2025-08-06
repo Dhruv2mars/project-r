@@ -1,3 +1,6 @@
+// Import global type definitions
+import './global'
+
 // Core data types
 export interface Session {
   id: string

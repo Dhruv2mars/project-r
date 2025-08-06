@@ -4,8 +4,7 @@ import type {
   AppState, 
   Session, 
   Message, 
-  PracticeSheet, 
-  PracticeQuestion,
+  PracticeSheet,
   ExecutionResult,
   SessionResponse 
 } from '../types'
