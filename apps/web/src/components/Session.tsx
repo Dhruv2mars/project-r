@@ -59,9 +59,26 @@ function Session() {
   useEffect(() => {
     const initializeSpeech = async () => {
       try {
+        console.log('Initializing speech services...')
+        
         // Wait for voices to load
         await speechService.waitForVoices()
-        setSpeechInitialized(speechService.isRecognitionSupported() && speechService.isSynthesisSupported())
+        
+        const recognitionSupported = speechService.isRecognitionSupported()
+        const synthesisSupported = speechService.isSynthesisSupported()
+        
+        console.log('Speech recognition supported:', recognitionSupported)
+        console.log('Speech synthesis supported:', synthesisSupported)
+        
+        setSpeechInitialized(recognitionSupported && synthesisSupported)
+        
+        if (!recognitionSupported) {
+          console.warn('Speech recognition not supported - please use Chrome')
+        }
+        if (!synthesisSupported) {
+          console.warn('Speech synthesis not supported')
+        }
+        
       } catch (error) {
         console.error('Failed to initialize speech services:', error)
         setSpeechInitialized(false)
@@ -222,8 +239,9 @@ function Session() {
       setIsProcessing(false)
       setIsSpeaking(false)
       
-      // Show error message
-      alert('Voice interaction failed. Please try again.')
+      // Show detailed error message
+      const errorMessage = error instanceof Error ? error.message : 'Voice interaction failed. Please try again.'
+      alert(errorMessage)
     }
   }
 
