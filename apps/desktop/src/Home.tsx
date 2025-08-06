@@ -54,7 +54,6 @@ function Home() {
   // Memory viewer state
   const [showMemoryViewer, setShowMemoryViewer] = useState(false)
   const [memoryContent, setMemoryContent] = useState('')
-  const [loadingMemory, setLoadingMemory] = useState(false)
   
   
   
@@ -88,25 +87,6 @@ function Home() {
   }
 
 
-  // Function to handle session summaries
-  const handleSessionSummaries = async () => {
-    if (showMemoryViewer) {
-      setShowMemoryViewer(false)
-      return
-    }
-
-    setLoadingMemory(true)
-    try {
-      const content = await invoke<string>('get_memory_content')
-      setMemoryContent(content || 'No session summaries yet. Complete some conversations to see summaries here.')
-      setShowMemoryViewer(true)
-    } catch (error) {
-      setMemoryContent(`Error loading memory content: ${error}`)
-      setShowMemoryViewer(true)
-    } finally {
-      setLoadingMemory(false)
-    }
-  }
 
 
 

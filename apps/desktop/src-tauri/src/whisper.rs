@@ -104,8 +104,14 @@ impl WhisperTranscriber {
 // Utility function to download Whisper model if needed
 pub async fn ensure_whisper_model() -> Result<String, String> {
     use std::fs;
-    use tokio::io::AsyncWriteExt;
     
+    // First try to use bundled model
+    let bundled_model_path = get_bundled_model_path().await?;
+    if bundled_model_path.exists() {
+        return Ok(bundled_model_path.to_string_lossy().to_string());
+    }
+    
+    // Fallback to user directory for downloaded model
     let model_dir = dirs::config_dir()
         .ok_or("Failed to get config directory")?
         .join("project-r")
@@ -114,16 +120,15 @@ pub async fn ensure_whisper_model() -> Result<String, String> {
     fs::create_dir_all(&model_dir)
         .map_err(|e| format!("Failed to create model directory: {}", e))?;
     
-    let model_path = model_dir.join("ggml-base.en.bin");
+    let model_path = model_dir.join("ggml-tiny.en.bin");
     
-    // Check if model already exists
+    // Check if model already exists in user directory
     if model_path.exists() {
         return Ok(model_path.to_string_lossy().to_string());
     }
     
-    // Download the model
-    println!("Downloading Whisper model...");
-    let model_url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin";
+    // Download the smaller tiny.en model as fallback
+    let model_url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin";
     
     let response = reqwest::get(model_url).await
         .map_err(|e| format!("Failed to download model: {}", e))?;
@@ -132,6 +137,7 @@ pub async fn ensure_whisper_model() -> Result<String, String> {
         return Err(format!("Failed to download model: HTTP {}", response.status()));
     }
     
+    use tokio::io::AsyncWriteExt;
     let bytes = response.bytes().await
         .map_err(|e| format!("Failed to read model data: {}", e))?;
     
@@ -141,6 +147,21 @@ pub async fn ensure_whisper_model() -> Result<String, String> {
     file.write_all(&bytes).await
         .map_err(|e| format!("Failed to write model file: {}", e))?;
     
-    println!("Whisper model downloaded successfully");
     Ok(model_path.to_string_lossy().to_string())
+}
+
+async fn get_bundled_model_path() -> Result<std::path::PathBuf, String> {
+    use std::env;
+    
+    // In a bundled app, resources are typically in the same directory as the executable
+    let exe_path = env::current_exe()
+        .map_err(|e| format!("Failed to get executable path: {}", e))?;
+    
+    let exe_dir = exe_path.parent()
+        .ok_or("Failed to get executable directory")?;
+    
+    // Look for the model in the resources directory relative to the executable
+    let resource_path = exe_dir.join("ggml-tiny.en.bin");
+    
+    Ok(resource_path)
 }

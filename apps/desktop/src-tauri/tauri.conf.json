@@ -1,7 +1,7 @@
 {
   "productName": "Project-R",
   "version": "0.1.0",
-  "identifier": "com.projectr.app",
+  "identifier": "com.projectr.desktop",
   "build": {
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
@@ -17,7 +17,7 @@
       "icons/128x128@2x.png",
       "icons/icon.png"
     ],
-    "resources": [],
+    "resources": ["resources/ggml-tiny.en.bin"],
     "externalBin": [],
     "copyright": "",
     "category": "DeveloperTool",

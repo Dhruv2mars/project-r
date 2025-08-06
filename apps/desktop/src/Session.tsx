@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Mic, MicOff, Loader2, ArrowLeft } from 'lucide-react'
+import { Play, Mic, MicOff, Loader2 } from 'lucide-react'
 
 // Animated dots component
 const AnimatedDots = () => (
