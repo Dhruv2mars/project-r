@@ -72,8 +72,7 @@ export interface OpenRouterMessage {
 export interface Judge0Submission {
   source_code: string
   language_id: number
-  stdin?: string
-  wait?: boolean
+  stdin?: string | null
 }
 
 // State types

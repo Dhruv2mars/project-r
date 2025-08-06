@@ -16,15 +16,17 @@ class Judge0Service {
       return this.mockExecution(code, stdin)
     }
 
-    const submission: Judge0Submission = {
+    const submission = {
       source_code: code,
       language_id: 71, // Python 3
-      stdin: stdin,
-      wait: true
+      stdin: stdin || null
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/submissions`, {
+      console.log('Executing code with Judge0:', { code, stdin })
+      
+      // Use wait=true as query parameter for synchronous execution
+      const response = await fetch(`${this.baseUrl}/submissions?wait=true`, {
         method: 'POST',
         headers: {
           'X-RapidAPI-Key': this.apiKey,
@@ -34,12 +36,16 @@ class Judge0Service {
         body: JSON.stringify(submission)
       })
 
+      console.log('Judge0 response status:', response.status)
+
       if (!response.ok) {
         const errorText = await response.text()
+        console.error('Judge0 API error:', errorText)
         throw new Error(`Judge0 API error: ${response.status} ${errorText}`)
       }
 
       const result = await response.json()
+      console.log('Judge0 result:', result)
       
       return {
         stdout: result.stdout || '',
@@ -59,52 +65,88 @@ class Judge0Service {
   }
 
   private mockExecution(code: string, stdin: string): ExecutionResult {
-    // Simple mock execution for development/demo purposes
+    // Enhanced mock execution for development/demo purposes
     try {
-      // Basic pattern matching for common Python patterns
-      if (code.includes('print(')) {
-        const printMatches = code.match(/print\((.*?)\)/g)
-        if (printMatches) {
-          const outputs = printMatches.map(match => {
-            const content = match.match(/print\((.*?)\)/)?.[1] || ''
-            // Remove quotes if they exist
-            return content.replace(/['"]/g, '')
-          })
-          return {
-            stdout: outputs.join('\n') + '\n',
-            stderr: '',
-            status: 'Accepted'
+      console.log('Mock execution - Code:', code)
+      console.log('Mock execution - Stdin:', stdin)
+      
+      let output = ''
+      
+      // Handle print statements
+      const printMatches = code.match(/print\((.*?)\)/g)
+      if (printMatches) {
+        printMatches.forEach(match => {
+          const content = match.match(/print\((.*?)\)/)?.[1] || ''
+          // Simple evaluation of basic expressions
+          try {
+            // Handle string literals
+            if (content.match(/^["'].*["']$/)) {
+              output += content.replace(/['"]/g, '') + '\n'
+            }
+            // Handle simple arithmetic
+            else if (content.match(/^\d+\s*[\+\-\*\/]\s*\d+$/)) {
+              const result = eval(content)
+              output += result + '\n'
+            }
+            // Handle variables (simplified)
+            else if (content.match(/^\w+$/)) {
+              output += `[${content}]\n`
+            }
+            // Default
+            else {
+              output += content.replace(/['"]/g, '') + '\n'
+            }
+          } catch {
+            output += content.replace(/['"]/g, '') + '\n'
           }
-        }
+        })
       }
-
+      
+      // Handle input statements
       if (code.includes('input(')) {
-        // If code has input() and we have stdin, simulate interaction
-        if (stdin) {
-          return {
-            stdout: `Input received: ${stdin}\n`,
-            stderr: '',
-            status: 'Accepted'
-          }
+        if (stdin.trim()) {
+          const inputLines = stdin.split('\n').filter(line => line.trim())
+          inputLines.forEach(line => {
+            output += `Input: ${line}\n`
+          })
         } else {
           return {
-            stdout: '',
-            stderr: 'Program requires input but none provided',
-            status: 'Runtime Error'
+            stdout: output,
+            stderr: 'Program waiting for input (provide input below)',
+            status: 'Needs Input'
           }
         }
       }
-
-      // Default successful execution
+      
+      // Handle simple variable assignments and calculations
+      if (code.includes('=') && !code.includes('==')) {
+        const lines = code.split('\n')
+        lines.forEach(line => {
+          if (line.includes('=') && !line.includes('print(') && !line.trim().startsWith('#')) {
+            const parts = line.split('=')
+            if (parts.length === 2) {
+              const varName = parts[0].trim()
+              const value = parts[1].trim()
+              output += `${varName} = ${value}\n`
+            }
+          }
+        })
+      }
+      
+      // If no output generated, provide a default
+      if (!output.trim()) {
+        output = '(Mock execution completed)\n'
+      }
+      
       return {
-        stdout: 'Code executed successfully (mock)\n',
+        stdout: output,
         stderr: '',
-        status: 'Accepted'
+        status: 'Accepted (Mock)'
       }
     } catch (error) {
       return {
         stdout: '',
-        stderr: 'Mock execution error',
+        stderr: `Mock execution error: ${error}`,
         status: 'Runtime Error'
       }
     }
